@@ -1,0 +1,43 @@
+name: Manzanita benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.runner }} · ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, manzanita-standard]
+        platform: [macOS, iOS]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Record runner contract
+        run: |
+          sw_vers
+          xcodebuild -version
+          uname -m
+          sysctl -n hw.logicalcpu
+          sysctl -n hw.memsize
+          xcrun simctl list devices available
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - name: Run tests
+        env:
+          DESTINATION: ${{ matrix.platform == 'macOS' && 'platform=macOS' || 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' }}
+          DERIVED_DATA_PATH: build/DerivedData/xcode-26.6-${{ matrix.platform }}
+          XCODE_VERSION: '26.6'
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: '60'
+          FASTLANE_XCODEBUILD_SETTINGS_RETRIES: '4'
+        run: bundle exec fastlane test_ci
+
